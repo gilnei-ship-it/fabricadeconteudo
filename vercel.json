@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "routes": [
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
