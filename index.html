@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fábrica de Conteúdos Jogos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- UI Elements -->
+        <div id="ui-layer">
+            <div id="score-board">Pontos: <span id="score">0</span></div>
+            <div id="wave-board">Onda: <span id="wave">1</span></div>
+        </div>
+
+        <!-- Start / Game Over Screen -->
+        <div id="overlay" class="active">
+            <h1 class="glitch" data-text="FÁBRICA DE CONTEÚDOS">FÁBRICA DE CONTEÚDOS</h1>
+            <p id="subtitle">Um jeito mais fácil de acompanhar seus vídeos.</p>
+            <p id="final-score" class="hidden">Pontuação Final: <span>0</span></p>
+            <button id="start-btn">INICIAR SESSÃO</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
