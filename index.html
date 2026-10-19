@@ -1,32 +1,33 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Fábrica de Conteúdos Jogos</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Controle - Fábrica de Conteúdo</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
-        
-        <!-- UI Elements -->
-        <div id="ui-layer">
-            <div id="score-board">Pontos: <span id="score">0</span></div>
-            <div id="wave-board">Onda: <span id="wave">1</span></div>
+    <div class="mobile-container">
+        <div class="logos" style="margin-bottom: 40px;">
+            <span class="logo-text logo-blue">uni</span><span class="logo-text logo-orange">brisa</span>
         </div>
 
-        <!-- Start / Game Over Screen -->
-        <div id="overlay" class="active">
-            <h1 class="glitch" data-text="FÁBRICA DE CONTEÚDOS">FÁBRICA DE CONTEÚDOS</h1>
-            <p id="subtitle">Um jeito mais fácil de acompanhar seus vídeos.</p>
-            <p id="final-score" class="hidden">Pontuação Final: <span>0</span></p>
-            <button id="start-btn">INICIAR SESSÃO</button>
+        <div id="login-screen">
+            <input type="text" id="code-input" placeholder="CÓDIGO DA TV" maxlength="4" style="text-transform: uppercase;">
+            <input type="text" id="name-input" placeholder="Seu Nome">
+            <button id="join-btn">ENTRAR NA SALA</button>
+        </div>
+
+        <div id="waiting-screen" class="hidden">
+            <h2 style="color: var(--unibrisa-blue);">Conectado!</h2>
+            <p style="margin-top: 10px;">Olhe para a TV e aguarde o Host iniciar.</p>
+        </div>
+
+        <div id="game-screen" class="hidden">
+            <button id="action-btn">GERAR<br>VÍDEOS!</button>
         </div>
     </div>
-    <script src="game.js"></script>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="player.js"></script>
 </body>
 </html>
