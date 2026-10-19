@@ -7,43 +7,50 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static('public'));
-const rooms = {};
+
+let tvSocketId = null; 
+const players = {}; 
 
 io.on('connection', (socket) => {
-    socket.on('createRoom', () => {
-        const code = Math.random().toString(36).substring(2, 6).toUpperCase();
-        rooms[code] = { host: socket.id, players: {} };
-        socket.join(code);
-        socket.emit('roomCreated', code);
+    // A TV avisa que está online
+    socket.on('registerTV', () => {
+        tvSocketId = socket.id;
+        console.log('TV registrada:', tvSocketId);
     });
 
-    socket.on('joinRoom', ({ code, name }) => {
-        if (rooms[code] && Object.keys(rooms[code].players).length < 20) {
-            // Alterna cores entre azul e laranja
-            const color = Object.keys(rooms[code].players).length % 2 === 0 ? '#2352B5' : '#FF6600';
-            rooms[code].players[socket.id] = { name, color, x: 0.5 }; // Posição normalizada (0 a 1)
-            socket.join(code);
-            socket.emit('joined');
-            io.to(rooms[code].host).emit('playerJoined', { id: socket.id, name, color });
+    // Celular entra enviando apenas o nome
+    socket.on('joinGame', (name) => {
+        const color = Object.keys(players).length % 2 === 0 ? '#2352B5' : '#FF6600';
+        players[socket.id] = { name, color };
+        
+        socket.emit('joined'); // Libera a tela de controle no celular
+        
+        // Avisa a TV que alguém entrou
+        if (tvSocketId) {
+            io.to(tvSocketId).emit('playerJoined', { id: socket.id, name, color });
         }
     });
 
-    socket.on('move', ({ code, dir }) => {
-        if (rooms[code]) io.to(rooms[code].host).emit('playerMove', { id: socket.id, dir });
+    // Repassa os comandos de movimento e tiro para a TV
+    socket.on('move', (dir) => {
+        if (tvSocketId) io.to(tvSocketId).emit('playerMove', { id: socket.id, dir });
     });
 
-    socket.on('shoot', ({ code }) => {
-        if (rooms[code]) io.to(rooms[code].host).emit('playerShoot', { id: socket.id });
+    socket.on('shoot', () => {
+        if (tvSocketId) io.to(tvSocketId).emit('playerShoot', { id: socket.id });
     });
     
+    // Gerencia desconexões
     socket.on('disconnect', () => {
-        for (let code in rooms) {
-            if (rooms[code].players[socket.id]) {
-                delete rooms[code].players[socket.id];
-                io.to(rooms[code].host).emit('playerLeft', socket.id);
-            }
+        if (socket.id === tvSocketId) {
+            tvSocketId = null; 
+            console.log('TV desconectada');
+        } else if (players[socket.id]) {
+            delete players[socket.id];
+            if (tvSocketId) io.to(tvSocketId).emit('playerLeft', socket.id);
         }
     });
 });
 
-server.listen(3000, () => console.log('Servidor rodando na porta 3000'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
