@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Fábrica de Conteúdo - TV</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="logos">
+        <span class="logo-text logo-blue">unibrisa</span>
+        <span class="logo-text logo-orange">brisanet</span>
+    </div>
+
+    <!-- LOBBY -->
+    <div id="lobby-screen">
+        <h1 class="title">Fábrica de Conteúdo</h1>
+        <p class="subtitle">Um jeito mais fácil de acompanhar seus vídeos.</p>
+        <h2>Conecte seu celular acessando o IP da máquina e digite:</h2>
+        <div id="room-code">----</div>
+        <button id="start-btn" class="hidden" style="width: 300px; background: var(--brisanet-orange);">INICIAR SESSÃO</button>
+        <div class="players-grid" id="players-list"></div>
+    </div>
+
+    <!-- JOGO (30 Segundos) -->
+    <div id="game-screen" class="hidden">
+        <h1 class="title" style="font-size: 3rem;">PRODUZA CONTEÚDO!</h1>
+        <div class="timer" id="timer">30</div>
+        <div class="players-grid" id="game-players-list"></div>
+    </div>
+
+    <!-- RESULTADO -->
+    <div id="leaderboard-screen" class="hidden">
+        <h1 class="title">Metas Batidas!</h1>
+        <div class="players-grid" id="leaderboard-list"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="host.js"></script>
+</body>
+</html>
