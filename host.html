@@ -1,40 +1,170 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<html style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background-color:#F4F4F4;">
 <head>
-    <meta charset="UTF-8">
-    <title>Fábrica de Conteúdo - TV</title>
-    <link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  body { margin:0; padding:0; display:flex; align-items:center; justify-content:center; height:100vh; background-color:#EFEFEF; font-family:'Montserrat', sans-serif; }
+  .canvas-container { position:relative; width:100%; max-width:1920px; aspect-ratio:16/9; background:#F4F4F4; overflow:hidden; box-shadow:0 0 30px rgba(0,0,0,0.1); }
+  canvas { display:block; width:100%; height:100%; }
+  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(244,244,244,0.9); z-index:10; }
+  .title { font-size:60px; font-weight:900; color:#FF6600; text-transform:uppercase; }
+  .title span { color:#2352B5; }
+  .room-code { font-size:80px; font-weight:900; color:#2352B5; background:#fff; padding:10px 40px; border-radius:15px; margin:20px 0; border:4px dashed #FF6600; }
+  .leaderboard { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; padding:20px; }
+  .player-card { background:#fff; padding:15px; border-radius:10px; font-weight:bold; font-size:20px; box-shadow:0 4px 10px rgba(0,0,0,0.1); border-left:5px solid #2352B5; }
+</style>
 </head>
 <body>
-    <div class="logos">
-        <span class="logo-text logo-blue">unibrisa</span>
-        <span class="logo-text logo-orange">brisanet</span>
+  <div class="canvas-container">
+    <canvas id="game"></canvas>
+
+    <!-- Tela de Lobby -->
+    <div id="lobby" class="overlay">
+      <div class="title"><span>Fábrica de</span> Conteúdo</div>
+      <h2>Conecte seu celular usando o código:</h2>
+      <div class="room-code" id="code-display">----</div>
+      <div id="players-list" class="leaderboard"></div>
+      <button id="start-btn" style="padding:20px 40px; font-size:24px; font-weight:bold; background:#FF6600; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:20px;">INICIAR JOGO</button>
     </div>
 
-    <!-- LOBBY -->
-    <div id="lobby-screen">
-        <h1 class="title">Fábrica de Conteúdo</h1>
-        <p class="subtitle">Um jeito mais fácil de acompanhar seus vídeos.</p>
-        <h2>Conecte seu celular acessando o IP da máquina e digite:</h2>
-        <div id="room-code">----</div>
-        <button id="start-btn" class="hidden" style="width: 300px; background: var(--brisanet-orange);">INICIAR SESSÃO</button>
-        <div class="players-grid" id="players-list"></div>
+    <!-- Tela de Fim de Jogo -->
+    <div id="game-over" class="overlay" style="display:none;">
+      <div class="title">Fim de Expediente!</div>
+      <h2>Relatório Final</h2>
+      <div id="final-stats" class="leaderboard"></div>
+      <button onclick="location.reload()" style="padding:20px 40px; font-size:24px; font-weight:bold; background:#2352B5; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:20px;">NOVA SALA</button>
     </div>
+  </div>
 
-    <!-- JOGO (30 Segundos) -->
-    <div id="game-screen" class="hidden">
-        <h1 class="title" style="font-size: 3rem;">PRODUZA CONTEÚDO!</h1>
-        <div class="timer" id="timer">30</div>
-        <div class="players-grid" id="game-players-list"></div>
-    </div>
+<script>
+  const socket = io();
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W; canvas.height = H;
 
-    <!-- RESULTADO -->
-    <div id="leaderboard-screen" class="hidden">
-        <h1 class="title">Metas Batidas!</h1>
-        <div class="players-grid" id="leaderboard-list"></div>
-    </div>
+  let roomCode = '';
+  let players = {};
+  let bullets = [], enemies = [], stars = [];
+  let isPlaying = false;
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="host.js"></script>
+  // Estrelas/Partículas da marca preenchendo toda a tela
+  for(let i=0; i<150; i++) {
+      stars.push({ x: Math.random()*W, y: Math.random()*H, s: Math.random()*3+1, color: Math.random()>0.5 ? '#2352B5' : '#FF6600' });
+  }
+
+  socket.emit('createRoom');
+  socket.on('roomCreated', code => { roomCode = code; document.getElementById('code-display').innerText = code; });
+
+  socket.on('playerJoined', p => {
+      players[p.id] = { name: p.name, color: p.color, x: W/2, y: H-100, score: 0, livesLost: 0, active: true };
+      document.getElementById('players-list').innerHTML += `<div class="player-card" style="border-left-color:${p.color}">${p.name}</div>`;
+  });
+
+  socket.on('playerMove', p => {
+      if(players[p.id] && isPlaying) {
+          players[p.id].x += p.dir * 40; // Velocidade do movimento
+          players[p.id].x = Math.max(20, Math.min(W-20, players[p.id].x));
+      }
+  });
+
+  socket.on('playerShoot', p => {
+      if(players[p.id] && isPlaying) {
+          bullets.push({ x: players[p.id].x, y: players[p.id].y - 20, vy: -10, owner: p.id, color: players[p.id].color });
+      }
+  });
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+      document.getElementById('lobby').style.display = 'none';
+      isPlaying = true;
+      gameLoop();
+      // Jogo dura 60 segundos
+      setTimeout(endGame, 60000); 
+  });
+
+  function spawnEnemy() {
+      enemies.push({ x: Math.random()*(W-40)+20, y: -30, vy: Math.random()*2+2, size: 20 });
+  }
+
+  function endGame() {
+      isPlaying = false;
+      document.getElementById('game-over').style.display = 'flex';
+      const sorted = Object.values(players).sort((a,b) => b.score - a.score);
+      const statsDiv = document.getElementById('final-stats');
+      statsDiv.innerHTML = '';
+      sorted.forEach((p, i) => {
+          statsDiv.innerHTML += `
+            <div class="player-card" style="border-left-color:${p.color}">
+              #${i+1} ${p.name}<br>
+              Pontos: ${p.score}<br>
+              Vidas Perdidas: ${p.livesLost}
+            </div>`;
+      });
+  }
+
+  setInterval(() => { if(isPlaying) spawnEnemy(); }, 1000);
+
+  function gameLoop() {
+      if(!isPlaying) return;
+      ctx.clearRect(0,0,W,H);
+
+      // Fundo / Estrelas
+      stars.forEach(s => {
+          s.y += 1; if(s.y > H) { s.y = 0; s.x = Math.random()*W; }
+          ctx.fillStyle = s.color; ctx.globalAlpha = 0.3;
+          ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+
+      // Inimigos
+      for(let i=enemies.length-1; i>=0; i--) {
+          let e = enemies[i];
+          e.y += e.vy;
+          ctx.fillStyle = '#333';
+          ctx.fillRect(e.x-e.size, e.y-e.size, e.size*2, e.size*2);
+          
+          // Colisão com jogadores
+          for(let id in players) {
+              let p = players[id];
+              if(Math.hypot(p.x - e.x, p.y - e.y) < e.size + 15) {
+                  p.livesLost++;
+                  enemies.splice(i, 1);
+                  break;
+              }
+          }
+          if(e.y > H) enemies.splice(i, 1);
+      }
+
+      // Tiros
+      for(let i=bullets.length-1; i>=0; i--) {
+          let b = bullets[i];
+          b.y += b.vy;
+          ctx.fillStyle = b.color;
+          ctx.fillRect(b.x-3, b.y-10, 6, 20);
+
+          // Colisão tiro-inimigo
+          for(let j=enemies.length-1; j>=0; j--) {
+              let e = enemies[j];
+              if(Math.hypot(b.x - e.x, b.y - e.y) < e.size) {
+                  if(players[b.owner]) players[b.owner].score += 100;
+                  enemies.splice(j, 1);
+                  bullets.splice(i, 1);
+                  break;
+              }
+          }
+          if(b.y < 0) bullets.splice(i, 1);
+      }
+
+      // Desenhar Jogadores
+      for(let id in players) {
+          let p = players[id];
+          ctx.fillStyle = p.color;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y-20); ctx.lineTo(p.x+15, p.y+10); ctx.lineTo(p.x-15, p.y+10); ctx.fill();
+          ctx.fillStyle = '#333'; ctx.font = '12px Montserrat'; ctx.fillText(p.score, p.x-10, p.y+25);
+      }
+
+      requestAnimationFrame(gameLoop);
+  }
+</script>
 </body>
 </html>
