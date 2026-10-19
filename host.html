@@ -1,17 +1,28 @@
-<html style="margin:0;padding:0;width:100%;height:100%;overflow:hidden;background-color:#F4F4F4;">
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
+<meta charset="UTF-8">
+<title>Fábrica de Conteúdo - TV</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="/socket.io/socket.io.js"></script>
 <style>
-  body { margin:0; padding:0; display:flex; align-items:center; justify-content:center; height:100vh; background-color:#EFEFEF; font-family:'Montserrat', sans-serif; }
-  .canvas-container { position:relative; width:100%; max-width:1920px; aspect-ratio:16/9; background:#F4F4F4; overflow:hidden; box-shadow:0 0 30px rgba(0,0,0,0.1); }
-  canvas { display:block; width:100%; height:100%; }
-  .overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(244,244,244,0.9); z-index:10; }
-  .title { font-size:60px; font-weight:900; color:#FF6600; text-transform:uppercase; }
-  .title span { color:#2352B5; }
-  .room-code { font-size:80px; font-weight:900; color:#2352B5; background:#fff; padding:10px 40px; border-radius:15px; margin:20px 0; border:4px dashed #FF6600; }
-  .leaderboard { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; padding:20px; }
-  .player-card { background:#fff; padding:15px; border-radius:10px; font-weight:bold; font-size:20px; box-shadow:0 4px 10px rgba(0,0,0,0.1); border-left:5px solid #2352B5; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { display: flex; align-items: center; justify-content: center; height: 100vh; background-color: #05030a; font-family: 'Montserrat', sans-serif; overflow: hidden; }
+  
+  .canvas-container { position: relative; width: 100%; max-width: 1920px; aspect-ratio: 16/9; background: #F4F4F4; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+  canvas { display: block; width: 100%; height: 100%; }
+  
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(244,244,244,0.95); z-index: 10; text-align: center; }
+  .title { font-size: 5vw; font-weight: 900; color: #FF6600; text-transform: uppercase; line-height: 1.1; margin-bottom: 20px; }
+  .title span { color: #2352B5; }
+  
+  .subtitle { font-size: 2vw; color: #333; margin-bottom: 30px; font-weight: 700; }
+  
+  .leaderboard { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; padding: 20px; width: 90%; max-height: 40%; overflow-y: auto; }
+  .player-card { background: #fff; padding: 15px 25px; border-radius: 12px; font-weight: 800; font-size: 1.5vw; box-shadow: 0 8px 16px rgba(0,0,0,0.1); border-left: 8px solid #2352B5; }
+  
+  .btn-start { padding: 20px 50px; font-size: 2vw; font-weight: 900; background: #FF6600; color: #fff; border: none; border-radius: 15px; cursor: pointer; box-shadow: 0 10px 20px rgba(255, 102, 0, 0.3); transition: transform 0.2s; margin-top: 20px; }
+  .btn-start:hover { transform: scale(1.05); }
 </style>
 </head>
 <body>
@@ -21,18 +32,17 @@
     <!-- Tela de Lobby -->
     <div id="lobby" class="overlay">
       <div class="title"><span>Fábrica de</span> Conteúdo</div>
-      <h2>Conecte seu celular usando o código:</h2>
-      <div class="room-code" id="code-display">----</div>
+      <div class="subtitle">Acesse o link no seu celular e digite seu nome para entrar!</div>
       <div id="players-list" class="leaderboard"></div>
-      <button id="start-btn" style="padding:20px 40px; font-size:24px; font-weight:bold; background:#FF6600; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:20px;">INICIAR JOGO</button>
+      <button id="start-btn" class="btn-start">INICIAR SESSÃO</button>
     </div>
 
     <!-- Tela de Fim de Jogo -->
     <div id="game-over" class="overlay" style="display:none;">
       <div class="title">Fim de Expediente!</div>
-      <h2>Relatório Final</h2>
+      <div class="subtitle">Relatório Final de Produção</div>
       <div id="final-stats" class="leaderboard"></div>
-      <button onclick="location.reload()" style="padding:20px 40px; font-size:24px; font-weight:bold; background:#2352B5; color:#fff; border:none; border-radius:10px; cursor:pointer; margin-top:20px;">NOVA SALA</button>
+      <button onclick="location.reload()" class="btn-start" style="background:#2352B5; box-shadow: 0 10px 20px rgba(35, 82, 181, 0.3);">NOVA SALA</button>
     </div>
   </div>
 
@@ -40,37 +50,50 @@
   const socket = io();
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  let W = canvas.clientWidth, H = canvas.clientHeight;
-  canvas.width = W; canvas.height = H;
+  
+  let W, H;
+  function resize() {
+      W = canvas.clientWidth;
+      H = canvas.clientHeight;
+      canvas.width = W;
+      canvas.height = H;
+  }
+  window.addEventListener('resize', resize);
+  resize();
 
-  let roomCode = '';
   let players = {};
   let bullets = [], enemies = [], stars = [];
   let isPlaying = false;
+  let gameDuration = 60000; // 60 segundos
+  let gameTimer;
 
-  // Estrelas/Partículas da marca preenchendo toda a tela
+  // Inicializa Estrelas/Partículas
   for(let i=0; i<150; i++) {
       stars.push({ x: Math.random()*W, y: Math.random()*H, s: Math.random()*3+1, color: Math.random()>0.5 ? '#2352B5' : '#FF6600' });
   }
 
-  socket.emit('createRoom');
-  socket.on('roomCreated', code => { roomCode = code; document.getElementById('code-display').innerText = code; });
+  // Registra a TV
+  socket.emit('registerTV');
 
   socket.on('playerJoined', p => {
-      players[p.id] = { name: p.name, color: p.color, x: W/2, y: H-100, score: 0, livesLost: 0, active: true };
+      players[p.id] = { name: p.name, color: p.color, x: W/2, y: H - (H*0.1), score: 0, livesLost: 0 };
       document.getElementById('players-list').innerHTML += `<div class="player-card" style="border-left-color:${p.color}">${p.name}</div>`;
+  });
+
+  socket.on('playerLeft', id => {
+      if(players[id]) delete players[id];
   });
 
   socket.on('playerMove', p => {
       if(players[p.id] && isPlaying) {
-          players[p.id].x += p.dir * 40; // Velocidade do movimento
-          players[p.id].x = Math.max(20, Math.min(W-20, players[p.id].x));
+          players[p.id].x += p.dir * (W * 0.015); // Movimento responsivo
+          players[p.id].x = Math.max(30, Math.min(W-30, players[p.id].x));
       }
   });
 
   socket.on('playerShoot', p => {
       if(players[p.id] && isPlaying) {
-          bullets.push({ x: players[p.id].x, y: players[p.id].y - 20, vy: -10, owner: p.id, color: players[p.id].color });
+          bullets.push({ x: players[p.id].x, y: players[p.id].y - 30, vy: -(H * 0.02), owner: p.id, color: players[p.id].color });
       }
   });
 
@@ -78,12 +101,12 @@
       document.getElementById('lobby').style.display = 'none';
       isPlaying = true;
       gameLoop();
-      // Jogo dura 60 segundos
-      setTimeout(endGame, 60000); 
+      gameTimer = setTimeout(endGame, gameDuration); 
   });
 
   function spawnEnemy() {
-      enemies.push({ x: Math.random()*(W-40)+20, y: -30, vy: Math.random()*2+2, size: 20 });
+      const size = W * 0.02;
+      enemies.push({ x: Math.random()*(W - size*2) + size, y: -50, vy: (H * 0.003) + Math.random()*(H * 0.003), size: size });
   }
 
   function endGame() {
@@ -96,71 +119,78 @@
           statsDiv.innerHTML += `
             <div class="player-card" style="border-left-color:${p.color}">
               #${i+1} ${p.name}<br>
-              Pontos: ${p.score}<br>
-              Vidas Perdidas: ${p.livesLost}
+              <span style="color:#FF6600">Pts: ${p.score}</span> | <span style="color:#2352B5">Perdas: ${p.livesLost}</span>
             </div>`;
       });
   }
 
-  setInterval(() => { if(isPlaying) spawnEnemy(); }, 1000);
+  setInterval(() => { if(isPlaying) spawnEnemy(); }, 800); // Frequência de inimigos
 
   function gameLoop() {
       if(!isPlaying) return;
       ctx.clearRect(0,0,W,H);
 
-      // Fundo / Estrelas
+      // Atualiza Fundo
       stars.forEach(s => {
-          s.y += 1; if(s.y > H) { s.y = 0; s.x = Math.random()*W; }
-          ctx.fillStyle = s.color; ctx.globalAlpha = 0.3;
+          s.y += (H * 0.001); 
+          if(s.y > H) { s.y = 0; s.x = Math.random()*W; }
+          ctx.fillStyle = s.color; ctx.globalAlpha = 0.4;
           ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2); ctx.fill();
       });
       ctx.globalAlpha = 1;
 
-      // Inimigos
+      // Atualiza Inimigos
       for(let i=enemies.length-1; i>=0; i--) {
           let e = enemies[i];
           e.y += e.vy;
           ctx.fillStyle = '#333';
           ctx.fillRect(e.x-e.size, e.y-e.size, e.size*2, e.size*2);
           
-          // Colisão com jogadores
           for(let id in players) {
               let p = players[id];
-              if(Math.hypot(p.x - e.x, p.y - e.y) < e.size + 15) {
+              if(Math.hypot(p.x - e.x, p.y - e.y) < e.size + 20) {
                   p.livesLost++;
                   enemies.splice(i, 1);
                   break;
               }
           }
-          if(e.y > H) enemies.splice(i, 1);
+          if(e && e.y > H + 50) enemies.splice(i, 1);
       }
 
-      // Tiros
+      // Atualiza Tiros
       for(let i=bullets.length-1; i>=0; i--) {
           let b = bullets[i];
           b.y += b.vy;
           ctx.fillStyle = b.color;
-          ctx.fillRect(b.x-3, b.y-10, 6, 20);
+          ctx.fillRect(b.x-4, b.y-15, 8, 30);
 
-          // Colisão tiro-inimigo
           for(let j=enemies.length-1; j>=0; j--) {
               let e = enemies[j];
-              if(Math.hypot(b.x - e.x, b.y - e.y) < e.size) {
+              if(Math.hypot(b.x - e.x, b.y - e.y) < e.size + 10) {
                   if(players[b.owner]) players[b.owner].score += 100;
                   enemies.splice(j, 1);
                   bullets.splice(i, 1);
                   break;
               }
           }
-          if(b.y < 0) bullets.splice(i, 1);
+          if(b && b.y < -50) bullets.splice(i, 1);
       }
 
-      // Desenhar Jogadores
+      // Desenha Jogadores
       for(let id in players) {
           let p = players[id];
           ctx.fillStyle = p.color;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y-20); ctx.lineTo(p.x+15, p.y+10); ctx.lineTo(p.x-15, p.y+10); ctx.fill();
-          ctx.fillStyle = '#333'; ctx.font = '12px Montserrat'; ctx.fillText(p.score, p.x-10, p.y+25);
+          ctx.beginPath(); 
+          ctx.moveTo(p.x, p.y-30); 
+          ctx.lineTo(p.x+20, p.y+15); 
+          ctx.lineTo(p.x-20, p.y+15); 
+          ctx.fill();
+          
+          ctx.fillStyle = '#333'; 
+          ctx.font = 'bold 1.2vw Montserrat'; 
+          ctx.textAlign = 'center';
+          ctx.fillText(p.score, p.x, p.y+35);
+          ctx.fillText(p.name, p.x, p.y+55);
       }
 
       requestAnimationFrame(gameLoop);
