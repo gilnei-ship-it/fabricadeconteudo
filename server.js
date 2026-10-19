@@ -7,47 +7,41 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static('public'));
-
 const rooms = {};
-
-const generateRoomCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    let code = '';
-    for(let i=0; i<4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-    return code;
-};
 
 io.on('connection', (socket) => {
     socket.on('createRoom', () => {
-        const roomCode = generateRoomCode();
-        rooms[roomCode] = { host: socket.id, players: {} };
-        socket.join(roomCode);
-        socket.emit('roomCreated', roomCode);
+        const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+        rooms[code] = { host: socket.id, players: {} };
+        socket.join(code);
+        socket.emit('roomCreated', code);
     });
 
-    socket.on('joinRoom', ({ roomCode, nickname }) => {
-        const code = roomCode.toUpperCase();
-        if (rooms[code]) {
-            rooms[code].players[socket.id] = { nickname, score: 0 };
+    socket.on('joinRoom', ({ code, name }) => {
+        if (rooms[code] && Object.keys(rooms[code].players).length < 20) {
+            // Alterna cores entre azul e laranja
+            const color = Object.keys(rooms[code].players).length % 2 === 0 ? '#2352B5' : '#FF6600';
+            rooms[code].players[socket.id] = { name, color, x: 0.5 }; // Posição normalizada (0 a 1)
             socket.join(code);
-            socket.emit('joined', code);
-            io.to(rooms[code].host).emit('playerJoined', { id: socket.id, nickname });
-        } else {
-            socket.emit('errorMsg', 'Código de sala inválido.');
+            socket.emit('joined');
+            io.to(rooms[code].host).emit('playerJoined', { id: socket.id, name, color });
         }
     });
 
-    socket.on('startGame', (roomCode) => {
-        if (rooms[roomCode]) io.to(roomCode).emit('gameStarted');
+    socket.on('move', ({ code, dir }) => {
+        if (rooms[code]) io.to(rooms[code].host).emit('playerMove', { id: socket.id, dir });
     });
 
-    socket.on('playerAction', ({ roomCode }) => {
-        if (rooms[roomCode] && rooms[roomCode].players[socket.id]) {
-            rooms[roomCode].players[socket.id].score += 10; // 10 pontos por conteúdo gerado
-            io.to(rooms[code].host).emit('updateScore', {
-                id: socket.id,
-                score: rooms[roomCode].players[socket.id].score
-            });
+    socket.on('shoot', ({ code }) => {
+        if (rooms[code]) io.to(rooms[code].host).emit('playerShoot', { id: socket.id });
+    });
+    
+    socket.on('disconnect', () => {
+        for (let code in rooms) {
+            if (rooms[code].players[socket.id]) {
+                delete rooms[code].players[socket.id];
+                io.to(rooms[code].host).emit('playerLeft', socket.id);
+            }
         }
     });
 });
