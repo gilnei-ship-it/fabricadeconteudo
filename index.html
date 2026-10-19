@@ -1,33 +1,71 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Controle - Fábrica de Conteúdo</title>
-    <link rel="stylesheet" href="style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; padding:0; display:flex; flex-direction:column; height:100vh; background:#F4F4F4; font-family:'Montserrat', sans-serif; }
+  .login { padding:40px; text-align:center; }
+  input { width:100%; padding:15px; margin-bottom:15px; font-size:18px; border:2px solid #ccc; border-radius:10px; text-align:center; text-transform:uppercase; font-weight:bold;}
+  button { width:100%; padding:20px; font-size:20px; font-weight:900; background:#2352B5; color:white; border:none; border-radius:10px; cursor:pointer; }
+  
+  .controls { display:none; flex-direction:column; height:100%; }
+  .movement { display:flex; flex:1; }
+  .btn-move { flex:1; font-size:40px; background:#e0e0e0; border:1px solid #ccc; font-weight:900; color:#333; }
+  .btn-move:active { background:#ccc; }
+  .btn-shoot { flex:1; background:#FF6600; color:white; font-size:40px; font-weight:900; border:none; }
+  .btn-shoot:active { background:#e65c00; transform:scale(0.98); }
+</style>
+<script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-    <div class="mobile-container">
-        <div class="logos" style="margin-bottom: 40px;">
-            <span class="logo-text logo-blue">uni</span><span class="logo-text logo-orange">brisa</span>
-        </div>
 
-        <div id="login-screen">
-            <input type="text" id="code-input" placeholder="CÓDIGO DA TV" maxlength="4" style="text-transform: uppercase;">
-            <input type="text" id="name-input" placeholder="Seu Nome">
-            <button id="join-btn">ENTRAR NA SALA</button>
-        </div>
+  <!-- Tela de Login -->
+  <div id="login" class="login">
+    <h1 style="color:#FF6600;">Fábrica de <span style="color:#2352B5;">Conteúdo</span></h1>
+    <input type="text" id="code" placeholder="CÓDIGO DA TV" maxlength="4">
+    <input type="text" id="name" placeholder="SEU NOME">
+    <button onclick="joinRoom()">ENTRAR</button>
+  </div>
 
-        <div id="waiting-screen" class="hidden">
-            <h2 style="color: var(--unibrisa-blue);">Conectado!</h2>
-            <p style="margin-top: 10px;">Olhe para a TV e aguarde o Host iniciar.</p>
-        </div>
-
-        <div id="game-screen" class="hidden">
-            <button id="action-btn">GERAR<br>VÍDEOS!</button>
-        </div>
+  <!-- Controles Arcade -->
+  <div id="controls" class="controls">
+    <div class="movement">
+      <button class="btn-move" ontouchstart="startMove(-1)" onmousedown="startMove(-1)" ontouchend="stopMove()" onmouseup="stopMove()">◄</button>
+      <button class="btn-move" ontouchstart="startMove(1)" onmousedown="startMove(1)" ontouchend="stopMove()" onmouseup="stopMove()">►</button>
     </div>
+    <button class="btn-shoot" ontouchstart="shoot()" onmousedown="shoot()">ATIRAR</button>
+  </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="player.js"></script>
+<script>
+  const socket = io();
+  let myCode = '';
+  let moveInterval;
+
+  function joinRoom() {
+      myCode = document.getElementById('code').value.toUpperCase();
+      const name = document.getElementById('name').value;
+      if(myCode && name) socket.emit('joinRoom', { code: myCode, name });
+  }
+
+  socket.on('joined', () => {
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('controls').style.display = 'flex';
+  });
+
+  function startMove(dir) {
+      if(moveInterval) clearInterval(moveInterval);
+      moveInterval = setInterval(() => socket.emit('move', { code: myCode, dir }), 50); // Envia movimento contínuo
+  }
+
+  function stopMove() {
+      clearInterval(moveInterval);
+  }
+
+  function shoot() {
+      socket.emit('shoot', { code: myCode });
+      if(navigator.vibrate) navigator.vibrate(20); // Suco de jogo no celular
+  }
+</script>
 </body>
 </html>
