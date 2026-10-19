@@ -1,20 +1,31 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Controle - Fábrica de Conteúdo</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&display=swap" rel="stylesheet">
 <style>
-  body { margin:0; padding:0; display:flex; flex-direction:column; height:100vh; background:#F4F4F4; font-family:'Montserrat', sans-serif; }
-  .login { padding:40px; text-align:center; }
-  input { width:100%; padding:15px; margin-bottom:15px; font-size:18px; border:2px solid #ccc; border-radius:10px; text-align:center; text-transform:uppercase; font-weight:bold;}
-  button { width:100%; padding:20px; font-size:20px; font-weight:900; background:#2352B5; color:white; border:none; border-radius:10px; cursor:pointer; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background: #F4F4F4; font-family: 'Montserrat', sans-serif; overflow: hidden; touch-action: none; }
   
-  .controls { display:none; flex-direction:column; height:100%; }
-  .movement { display:flex; flex:1; }
-  .btn-move { flex:1; font-size:40px; background:#e0e0e0; border:1px solid #ccc; font-weight:900; color:#333; }
-  .btn-move:active { background:#ccc; }
-  .btn-shoot { flex:1; background:#FF6600; color:white; font-size:40px; font-weight:900; border:none; }
-  .btn-shoot:active { background:#e65c00; transform:scale(0.98); }
+  .login { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 30px; text-align: center; }
+  .logo { font-size: 32px; font-weight: 900; color: #FF6600; margin-bottom: 40px; text-transform: uppercase; line-height: 1.2; }
+  .logo span { color: #2352B5; }
+  
+  input { width: 100%; max-width: 400px; padding: 20px; margin-bottom: 20px; font-size: 20px; border: 3px solid #ccc; border-radius: 15px; text-align: center; font-weight: 700; outline: none; transition: border-color 0.3s; }
+  input:focus { border-color: #2352B5; }
+  
+  .btn-enter { width: 100%; max-width: 400px; padding: 20px; font-size: 22px; font-weight: 900; background: #2352B5; color: white; border: none; border-radius: 15px; cursor: pointer; box-shadow: 0 8px 16px rgba(35, 82, 181, 0.3); }
+  
+  /* Controles Arcade */
+  .controls { display: none; flex-direction: column; height: 100%; width: 100%; }
+  .movement { display: flex; flex: 1; }
+  .btn-move { flex: 1; font-size: 60px; background: #e0e0e0; border: 2px solid #d0d0d0; font-weight: 900; color: #333; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-tap-highlight-color: transparent; }
+  .btn-move:active { background: #d0d0d0; }
+  
+  .btn-shoot { flex: 1; background: #FF6600; color: white; font-size: 40px; font-weight: 900; border: none; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 10px 20px rgba(255,255,255,0.2); user-select: none; -webkit-tap-highlight-color: transparent; }
+  .btn-shoot:active { background: #e65c00; }
 </style>
 <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -22,30 +33,31 @@
 
   <!-- Tela de Login -->
   <div id="login" class="login">
-    <h1 style="color:#FF6600;">Fábrica de <span style="color:#2352B5;">Conteúdo</span></h1>
-    <input type="text" id="code" placeholder="CÓDIGO DA TV" maxlength="4">
-    <input type="text" id="name" placeholder="SEU NOME">
-    <button onclick="joinRoom()">ENTRAR</button>
+    <div class="logo">Fábrica de<br><span>Conteúdo</span></div>
+    <input type="text" id="name" placeholder="SEU NOME AQUI" maxlength="12">
+    <button class="btn-enter" onclick="joinGame()">ENTRAR NO JOGO</button>
   </div>
 
   <!-- Controles Arcade -->
   <div id="controls" class="controls">
     <div class="movement">
-      <button class="btn-move" ontouchstart="startMove(-1)" onmousedown="startMove(-1)" ontouchend="stopMove()" onmouseup="stopMove()">◄</button>
-      <button class="btn-move" ontouchstart="startMove(1)" onmousedown="startMove(1)" ontouchend="stopMove()" onmouseup="stopMove()">►</button>
+      <div class="btn-move" ontouchstart="startMove(-1, event)" onmousedown="startMove(-1, event)" ontouchend="stopMove()" onmouseup="stopMove()" onmouseleave="stopMove()">◄</div>
+      <div class="btn-move" ontouchstart="startMove(1, event)" onmousedown="startMove(1, event)" ontouchend="stopMove()" onmouseup="stopMove()" onmouseleave="stopMove()">►</div>
     </div>
-    <button class="btn-shoot" ontouchstart="shoot()" onmousedown="shoot()">ATIRAR</button>
+    <div class="btn-shoot" ontouchstart="shoot(event)" onmousedown="shoot(event)">ATIRAR</div>
   </div>
 
 <script>
   const socket = io();
-  let myCode = '';
   let moveInterval;
 
-  function joinRoom() {
-      myCode = document.getElementById('code').value.toUpperCase();
-      const name = document.getElementById('name').value;
-      if(myCode && name) socket.emit('joinRoom', { code: myCode, name });
+  function joinGame() {
+      const name = document.getElementById('name').value.trim();
+      if(name) {
+          socket.emit('joinGame', name);
+      } else {
+          alert('Por favor, digite seu nome!');
+      }
   }
 
   socket.on('joined', () => {
@@ -53,18 +65,20 @@
       document.getElementById('controls').style.display = 'flex';
   });
 
-  function startMove(dir) {
+  function startMove(dir, e) {
+      if(e) e.preventDefault(); 
       if(moveInterval) clearInterval(moveInterval);
-      moveInterval = setInterval(() => socket.emit('move', { code: myCode, dir }), 50); // Envia movimento contínuo
+      moveInterval = setInterval(() => socket.emit('move', dir), 40); // Tiro e movimento fluídos
   }
 
   function stopMove() {
-      clearInterval(moveInterval);
+      if(moveInterval) clearInterval(moveInterval);
   }
 
-  function shoot() {
-      socket.emit('shoot', { code: myCode });
-      if(navigator.vibrate) navigator.vibrate(20); // Suco de jogo no celular
+  function shoot(e) {
+      if(e) e.preventDefault();
+      socket.emit('shoot');
+      if(navigator.vibrate) navigator.vibrate(15); // Vibração curta para o tiro
   }
 </script>
 </body>
